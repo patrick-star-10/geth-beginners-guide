@@ -1,0 +1,6 @@
+# Keep local Word sources out of the public repository.
+*.docx
+~$*.docx
+
+# macOS metadata
+.DS_Store
