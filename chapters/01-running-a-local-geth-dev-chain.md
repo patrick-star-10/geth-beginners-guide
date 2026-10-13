@@ -157,3 +157,63 @@ web3.fromWei(
 `eth.getBalance()` 查询余额，原始单位是 Wei。`web3.fromWei()` 将 Wei 转换成 ETH，方便阅读。
 
 ![查看本地开发账户余额](../assets/chapter-01/development-account-balance.png)
+
+## 发送第一笔 ETH 交易
+
+接下来让开发账户 A 向新创建的收款账户 B 发送 1 ETH。
+
+### 创建收款账户 B
+
+正常来说，创建以太坊账户涉及生成私钥、推导公钥，再从公钥计算账户地址。
+
+根据 [Geth 官方开发模式文档](https://geth.ethereum.org/docs/developers/dapp-developer/dev-mode)，当前教程推荐使用 Clef 创建新账户，而不是依赖旧教程中的 `personal.newAccount()`。本次本地实验使用 Geth 内置的账户管理命令创建一个由密码保护的 Keystore 账户：
+
+```bash
+cd ~/ethereum/go-ethereum
+
+./build/bin/geth account new \
+  --datadir ~/ethereum/dev-chain
+```
+
+按照提示输入密码并再次确认。创建成功后，会返回类似以下信息：
+
+![使用 Geth 创建密码保护的 Keystore 账户](../assets/chapter-01/create-keystore-account.png)
+
+这里有三个知识点：
+
+| 概念 | 解释 |
+| --- | --- |
+| Private Key | 用来控制账户、签署交易的私钥 |
+| Address | 根据公钥推导出的 20 字节地址 |
+| Keystore | 使用密码加密保存私钥的文件 |
+
+这个收款账户无需解锁，因为本次实验只让它接收 ETH。
+
+创建完成后，回到 Geth 控制台执行：
+
+```javascript
+eth.accounts
+```
+
+正常情况下，你应该能看到两个账户：
+
+![查看开发账户和新创建的收款账户](../assets/chapter-01/two-development-accounts.png)
+
+接着定义两个变量：
+
+```javascript
+var sender = eth.accounts[0]
+var receiver = eth.accounts[1]
+```
+
+检查收款账户的初始余额：
+
+```javascript
+eth.getBalance(receiver)
+```
+
+![新创建的收款账户余额为零](../assets/chapter-01/receiver-initial-balance.png)
+
+新创建且没有获得过 ETH 的账户，余额应该是 `0`。
+
+> 创建账户本身不是一笔链上交易。它主要是在本地生成密钥并保存到 Keystore，因此通常不会导致区块高度增加。
