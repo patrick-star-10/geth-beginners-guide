@@ -395,3 +395,49 @@ Nonce 的一个重要作用是约束同一账户的交易顺序，并防止已�
 ![Nonce 存在缺口时交易需要等待前序交易](../assets/chapter-01/nonce-gap-ordering.png)
 
 有些节点会暂时保留这种 Nonce 存在缺口的交易，等待前面的交易到来。节点是否接纳、保留多久，以及将其放在哪个交易池分组中，取决于客户端的交易池规则和配置。
+
+### 动手验证 Nonce
+
+继续使用前面已经发送成功的交易。在 Geth 控制台中查看这笔交易使用的 Nonce：
+
+```javascript
+eth.getTransaction(txHash).nonce
+```
+
+![查询已执行交易使用的 Nonce](../assets/chapter-01/transaction-nonce.png)
+
+如果这是预置开发账户发送的第一笔交易，并且此前没有其他交易，你应该看到 `0`。这表示该交易使用了 Nonce `0`。
+
+接着查询当前账户的 Nonce：
+
+```javascript
+eth.getTransactionCount(sender)
+```
+
+![查询发送账户当前的 Nonce](../assets/chapter-01/current-account-nonce.png)
+
+如果这笔交易已经执行成功，并且没有其他交易，你应该看到 `1`。
+
+注意两个结果的区别：
+
+- 交易的 Nonce 是 `0`。
+- 账户当前的 Nonce 是 `1`。
+
+这意味着账户下一笔正常交易应当使用 Nonce `1`。
+
+### 查看交易池状态
+
+执行：
+
+```javascript
+txpool.status
+```
+
+![查看当前为空的 Pending 和 Queued 交易数量](../assets/chapter-01/empty-txpool-status.png)
+
+根据 [Geth 官方 txpool 文档](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-txpool)，返回值包含两个计数：
+
+- `pending`：目前可供后续区块考虑的待处理交易数量。
+- `queued`：暂时无法连续执行、等待未来处理的交易数量。
+
+如果两者都是 `0`，不代表刚才的交易没有经过 TxPool。因为当前使用的是 `--dev.period 0`，Geth 可能已经迅速将交易包含进区块，所以查询时交易池已经为空。
