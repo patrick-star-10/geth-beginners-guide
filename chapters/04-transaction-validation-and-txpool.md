@@ -101,3 +101,7 @@ eth.getTransactionCount(sender)
 ![交易提交后先经过 Geth 校验再决定拒绝或进入交易池](../assets/chapter-04/transaction-validation-flow.png)
 
 交易提交给 Geth 后，节点会检查签名、Nonce、资金、费用和其他规则。不合法的交易会被拒绝；通过校验的交易才会根据当前条件进入交易池等待后续处理。
+
+---
+
+上一章：[第 3 章 理解交易生命周期与 Nonce](03-understanding-transaction-lifecycle-and-nonce.md)

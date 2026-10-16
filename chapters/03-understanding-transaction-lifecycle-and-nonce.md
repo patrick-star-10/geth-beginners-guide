@@ -71,3 +71,7 @@ eth.getTransactionCount(sender)
 - 账户当前的 Nonce 是 `1`。
 
 这意味着账户下一笔正常交易应当使用 Nonce `1`。
+
+---
+
+上一章：[第 2 章 发送第一笔 ETH 交易](02-sending-the-first-eth-transaction.md) · 下一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md)

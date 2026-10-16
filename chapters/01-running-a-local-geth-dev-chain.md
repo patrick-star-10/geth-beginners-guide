@@ -157,3 +157,7 @@ web3.fromWei(
 `eth.getBalance()` 查询余额，原始单位是 Wei。`web3.fromWei()` 将 Wei 转换成 ETH，方便阅读。
 
 ![查看本地开发账户余额](../assets/chapter-01/development-account-balance.png)
+
+---
+
+下一章：[第 2 章 发送第一笔 ETH 交易](02-sending-the-first-eth-transaction.md)

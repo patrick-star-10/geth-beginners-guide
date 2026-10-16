@@ -194,3 +194,7 @@ eth.getTransactionCount(sender)
 ![发送账户的交易数量变为一](../assets/chapter-02/sender-transaction-count.png)
 
 如果这是开发账户的第一笔交易，结果通常是 `1`。
+
+---
+
+上一章：[第 1 章 运行本地 Geth 开发节点](01-running-a-local-geth-dev-chain.md) · 下一章：[第 3 章 理解交易生命周期与 Nonce](03-understanding-transaction-lifecycle-and-nonce.md)
