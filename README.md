@@ -8,6 +8,7 @@
 2. [发送第一笔 ETH 交易](chapters/02-sending-the-first-eth-transaction.md)
 3. [理解交易生命周期与 Nonce](chapters/03-understanding-transaction-lifecycle-and-nonce.md)
 4. [交易验证与 TxPool](chapters/04-transaction-validation-and-txpool.md)
+5. [理解 Gas 与 EIP-1559 交易费用](chapters/05-understanding-gas-and-eip-1559-fees.md)
 
 ## 阅读说明
 

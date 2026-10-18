@@ -232,3 +232,7 @@ Base Fee 从 `1` Gwei 降至 `0.875` Gwei，下降了 `12.5%`。
 EIP-1559 会比较上一个区块的 Gas Used 和目标 Gas 使用量，并据此调整下一个区块的 Base Fee。根据[以太坊 Gas 官方文档](https://ethereum.org/developers/docs/gas/)，单个区块的 Base Fee 最多上调或下调 `12.5%`。
 
 在这次本地开发链实验中，创世区块的 `gasUsed` 为 `0`，远低于目标使用量，因此下一个区块的 Base Fee 按最大幅度下降。这说明 Base Fee 不是用户随意设置的固定价格，而是由协议规则根据前一个区块的使用情况调整。
+
+---
+
+上一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md)
