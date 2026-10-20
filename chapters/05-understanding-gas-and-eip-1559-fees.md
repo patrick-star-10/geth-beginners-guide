@@ -235,4 +235,4 @@ EIP-1559 会比较上一个区块的 Gas Used 和目标 Gas 使用量，并据�
 
 ---
 
-上一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md)
+上一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md) · 下一章：[第 6 章 以太坊状态机与账户状态转换](06-ethereum-state-machine-and-account-transitions.md)

@@ -9,6 +9,7 @@
 3. [理解交易生命周期与 Nonce](chapters/03-understanding-transaction-lifecycle-and-nonce.md)
 4. [交易验证与 TxPool](chapters/04-transaction-validation-and-txpool.md)
 5. [理解 Gas 与 EIP-1559 交易费用](chapters/05-understanding-gas-and-eip-1559-fees.md)
+6. [以太坊状态机与账户状态转换](chapters/06-ethereum-state-machine-and-account-transitions.md)
 
 ## 阅读说明
 

@@ -183,3 +183,7 @@ input: "0x"
 ## 本章结论
 
 以太坊执行层把旧状态和有效交易转换成新状态。账户字段描述具体状态，State Root 对区块执行结束后的全局状态作出密码学承诺，而 Geth 的历史查询和 `prestateTracer` 可以帮助我们直接验证状态如何变化。
+
+---
+
+上一章：[第 5 章 理解 Gas 与 EIP-1559 交易费用](05-understanding-gas-and-eip-1559-fees.md)
