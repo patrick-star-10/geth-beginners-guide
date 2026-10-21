@@ -187,3 +187,5 @@ input: "0x"
 ---
 
 上一章：[第 5 章 理解 Gas 与 EIP-1559 交易费用](05-understanding-gas-and-eip-1559-fees.md)
+
+下一章：[第 7 章 EVM 与智能合约执行](07-evm-and-smart-contract-execution.md)

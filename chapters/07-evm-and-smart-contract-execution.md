@@ -302,3 +302,7 @@ trace.structLogs.filter(function(step) {
 ## 本章结论
 
 EVM 是以太坊执行智能合约的确定性、基于栈的虚拟机。Solidity 只是更易编写的高级语言；真正被节点执行的是编译后的字节码。通过部署 `Storage`、手动构造 `set(100)` 的调用数据、读取 Slot 0 并筛选 `SSTORE`，我们第一次把源代码、ABI、交易、操作码和持久化状态变化连接成了一条可观察的执行链。
+
+---
+
+上一章：[第 6 章 以太坊状态机与账户状态转换](06-ethereum-state-machine-and-account-transitions.md)
