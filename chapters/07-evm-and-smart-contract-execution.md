@@ -97,3 +97,88 @@ cd ~/ethereum/go-ethereum
 - Deployed Bytecode 是部署完成后保存在合约地址上的运行时代码。
 
 Geth 和 EVM 不会直接执行 Solidity 源代码；它们执行编译器生成的 EVM 字节码。
+
+## 使用 Geth 部署合约
+
+回到 Geth JavaScript 控制台，把刚才复制的 Creation Bytecode 保存到变量中：
+
+```javascript
+var bytecode = "0x这里替换成从Remix复制的CreationBytecode"
+```
+
+![在控制台中保存部署字节码](../assets/chapter-07/deployment-bytecode-variable.png)
+
+替换占位文字时要注意：
+
+- 字节码必须以 `0x` 开头。
+- 如果 Remix 复制出的内容已经包含 `0x`，不要重复添加。
+- Creation Bytecode 很长，粘贴后可以先检查变量开头和末尾是否完整。
+
+然后保存开发链的发送账户：
+
+```javascript
+var sender = eth.accounts[0]
+```
+
+![读取 Geth 开发账户](../assets/chapter-07/deployment-sender-account.png)
+
+发送合约创建交易：
+
+```javascript
+var deployTx = eth.sendTransaction({
+  from: sender,
+  data: bytecode,
+  gas: 1000000
+})
+```
+
+![发送合约创建交易](../assets/chapter-07/contract-deployment-transaction.png)
+
+这笔交易没有 `to` 字段，因为它不是调用一个已有账户，而是在创建新合约。`gas: 1000000` 是允许这笔交易使用的 Gas 上限，并不表示最终一定会消耗这么多。
+
+## 检查部署结果
+
+查询部署交易的回执：
+
+```javascript
+var receipt = eth.getTransactionReceipt(deployTx)
+```
+
+如果交易尚未被包含进区块，结果可能暂时是 `null`。在当前 `--dev.period 0` 模式下，节点会在有待处理交易时创建区块；稍后重新执行查询即可。
+
+获得回执后，检查执行状态和新合约地址：
+
+```javascript
+receipt.status
+receipt.contractAddress
+```
+
+![检查合约部署回执](../assets/chapter-07/contract-deployment-receipt.png)
+
+成功回执的 `status` 为 `"0x1"`。`contractAddress` 是这次创建出来的新合约地址。将它保存下来，供后续调用使用：
+
+```javascript
+var contractAddress = receipt.contractAddress
+```
+
+接着读取该地址上的代码：
+
+```javascript
+eth.getCode(contractAddress)
+```
+
+![读取已部署合约的运行时代码](../assets/chapter-07/deployed-contract-bytecode.png)
+
+如果返回值不是空代码 `0x`，说明这个地址上已经保存了合约的运行时代码。[Ethereum JSON-RPC 文档](https://ethereum.org/developers/docs/apis/json-rpc/#eth_getcode)对 `eth_getCode` 的定义正是“返回指定地址上的代码”。
+
+## 读取合约的初始存储
+
+部署完成后，读取合约 Slot 0：
+
+```javascript
+eth.getStorageAt(contractAddress, 0)
+```
+
+![读取合约 Slot 0 的初始值](../assets/chapter-07/initial-storage-slot-zero.png)
+
+返回的 32 字节数据全部为零，说明 `number` 的初始值是 `0`。这里直接读取原始存储槽，是为了在下一步执行 `set(100)` 后进行前后对照。[Ethereum JSON-RPC 文档](https://ethereum.org/developers/docs/apis/json-rpc/#eth_getstorageat)说明，`eth_getStorageAt` 用地址和存储位置读取指定槽位的值。
