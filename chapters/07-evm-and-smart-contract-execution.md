@@ -182,3 +182,123 @@ eth.getStorageAt(contractAddress, 0)
 ![读取合约 Slot 0 的初始值](../assets/chapter-07/initial-storage-slot-zero.png)
 
 返回的 32 字节数据全部为零，说明 `number` 的初始值是 `0`。这里直接读取原始存储槽，是为了在下一步执行 `set(100)` 后进行前后对照。[Ethereum JSON-RPC 文档](https://ethereum.org/developers/docs/apis/json-rpc/#eth_getstorageat)说明，`eth_getStorageAt` 用地址和存储位置读取指定槽位的值。
+
+## 构造 `set(100)` 的调用数据
+
+调用合约函数时，交易的 `data` 字段要遵循 Solidity ABI 编码。对于 `set(100)`，可以在控制台中手动拼出调用数据：
+
+```javascript
+var callData = "0x60fe47b1" + "64".padStart(64, "0")
+callData
+```
+
+![构造 set 100 的调用数据](../assets/chapter-07/set-100-call-data.png)
+
+这串数据由两部分组成：
+
+| 数据 | 意义 |
+| --- | --- |
+| `60fe47b1` | `set(uint256)` 的四字节函数选择器 |
+| 后面的 64 个十六进制字符 | 参数 `100` 的 32 字节 ABI 编码 |
+
+函数选择器是函数签名 `set(uint256)` 的 Keccak-256 哈希前四个字节。参数部分的末尾是 `64`，它是十六进制的 `100`；前面的零把这个 `uint256` 补齐为 32 字节。Solidity 的 [ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)定义了函数选择器和参数编码规则。
+
+## 调用合约并检查回执
+
+将调用数据发送到已经部署的合约地址：
+
+```javascript
+var setTx = eth.sendTransaction({
+  from: sender,
+  to: contractAddress,
+  data: callData,
+  gas: 300000
+})
+
+setTx
+```
+
+![发送 set 100 合约调用交易](../assets/chapter-07/set-transaction-hash.png)
+
+这里与合约创建交易的关键差别是出现了 `to: contractAddress`：这次交易调用的是一个已经存在的合约。成功提交后，`setTx` 保存交易哈希。
+
+查询回执并检查执行状态：
+
+```javascript
+var setReceipt = eth.getTransactionReceipt(setTx)
+setReceipt.status
+```
+
+![检查 set 交易的执行状态](../assets/chapter-07/set-transaction-status.png)
+
+预期 `status` 为 `"0x1"`。如果回执暂时为 `null`，说明交易还没有进入区块，可以稍后重新查询。
+
+再查看交易实际消耗的 Gas：
+
+```javascript
+setReceipt.gasUsed
+```
+
+![查看 set 交易实际消耗的 Gas](../assets/chapter-07/set-transaction-gas-used.png)
+
+截图中的数值来自本次实验。实际值可能随 Solidity 编译器版本、优化设置和 EVM 规则变化，不应把它当成所有环境中的固定值。
+
+## 验证 Slot 0 已经更新
+
+再次读取合约 Slot 0：
+
+```javascript
+eth.getStorageAt(contractAddress, 0)
+```
+
+![set 交易后的 Slot 0](../assets/chapter-07/storage-slot-after-set.png)
+
+预期结果为：
+
+```text
+0x0000000000000000000000000000000000000000000000000000000000000064
+```
+
+末尾的 `64` 是十六进制的 `100`，说明持久化状态变量 `number` 已经从 `0` 变成 `100`。
+
+![Storage Slot 0 从 0 变为 100](../assets/chapter-07/storage-value-zero-to-one-hundred.png)
+
+## 追踪真正执行的 `SSTORE`
+
+`SSTORE` 是把数据写入当前合约持久化存储的 EVM 操作码。为了避免直接查看数百条指令，先把默认操作码追踪结果保存到变量，再只筛选 `SSTORE`：
+
+```javascript
+var trace = debug.traceTransaction(setTx)
+
+trace.structLogs.filter(function(step) {
+  return step.op === "SSTORE"
+})
+```
+
+![从交易追踪中筛选 SSTORE](../assets/chapter-07/sstore-trace-entry.png)
+
+默认追踪结果的 `structLogs` 按执行顺序记录操作码步骤。[Geth 基础追踪文档](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)介绍了这种结构化操作码日志；其中与本次实验最相关的字段是：
+
+| 字段 | 含义 |
+| --- | --- |
+| `pc` | 当前指令在字节码中的程序计数器位置 |
+| `op` | 当前执行的 EVM 操作码 |
+| `gas` | 执行该步骤前剩余的 Gas |
+| `gasCost` | 追踪器为该步骤记录的 Gas 成本 |
+| `stack` | 执行该步骤前的 EVM 栈内容 |
+
+具体的 `pc`、栈内容和 Gas 数值会受编译器与执行规则影响；本实验真正要验证的是：调用 `set(100)` 的执行轨迹中出现了 `SSTORE`，并且交易完成后 Slot 0 的值确实变成了 `100`。
+
+![从 Solidity 调用到 Storage 更新的完整流程](../assets/chapter-07/contract-execution-flow.png)
+
+至此，完整链路已经贯通：
+
+1. Solidity 编译器把 `Storage.sol` 变成 Creation Bytecode 和运行时代码。
+2. Geth 接收合约创建交易，EVM 执行初始化代码并把运行时代码保存到新地址。
+3. `set(100)` 被编码为函数选择器和 ABI 参数，通过交易发送给合约。
+4. EVM 执行运行时代码，其中的 `SSTORE` 把 `100` 写入 Slot 0。
+5. `eth.getStorageAt` 和 `debug.traceTransaction` 分别从状态与执行轨迹两个角度验证结果。
+
+## 本章结论
+
+EVM 是以太坊执行智能合约的确定性、基于栈的虚拟机。Solidity 只是更易编写的高级语言；真正被节点执行的是编译后的字节码。通过部署 `Storage`、手动构造 `set(100)` 的调用数据、读取 Slot 0 并筛选 `SSTORE`，我们第一次把源代码、ABI、交易、操作码和持久化状态变化连接成了一条可观察的执行链。
