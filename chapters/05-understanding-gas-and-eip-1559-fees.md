@@ -84,7 +84,7 @@ effectiveGasPrice = min(maxFeePerGas, baseFeePerGas + maxPriorityFeePerGas)
 
 ## 验证一笔交易的实际费用
 
-继续使用前面实验中的交易。如果已经关闭并重新打开过控制台，需要先恢复 `txHash`。下面是本次实验使用的交易哈希；如果你重新运行过开发链，应替换为自己的交易哈希：
+继续使用第 2 章中的转账。如果已经关闭并重新打开过控制台，需要先恢复 `txHash`。下面的哈希只是作者实验的示例，**请替换为你自己发送交易时得到的哈希**；如果重新初始化了开发链，要先在新链上重新发送交易，再使用新哈希：
 
 ```javascript
 var txHash = "0xa48e27a28cc2e0521785219a51c0a733f4d9375bbf4244f615c64f7d6c37bfe0"

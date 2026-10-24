@@ -67,6 +67,8 @@ eth.getBalance(sender)
 stateRoot: "0xbd697b302a5670bea71c10ac19d3503126e7eb33969bec7982307e6383868c71"
 ```
 
+> 这串哈希只是作者本地创世区块的示例。比较时请以**你自己的节点**返回的 `eth.getBlock(0).stateRoot` 为准，不必与示例相同。
+
 `stateRoot` 是区块执行完成后全局状态树的根哈希。它把账户余额、Nonce、合约代码和存储等状态组织成可验证的数据结构，并在区块中保存一个紧凑的根值。
 
 ![State Root 表示整个世界状态](../assets/chapter-06/state-root-world-state.png)
@@ -77,13 +79,15 @@ stateRoot: "0xbd697b302a5670bea71c10ac19d3503126e7eb33969bec7982307e6383868c71"
 
 ## 实验一 比较交易前后的 State Root
 
-如果重新打开过 Geth 控制台，先定义前面实验使用的交易哈希：
+如果重新打开过 Geth 控制台，先定义前面实验使用的交易哈希。下面的是作者实验的示例，**请替换为第 2 章中你实际得到的 `txHash`**；如果重新初始化了开发链，则需先在新链上重新发送交易：
 
 ```javascript
 var txHash = "0xa48e27a28cc2e0521785219a51c0a733f4d9375bbf4244f615c64f7d6c37bfe0"
 ```
 
-查看创世区块和包含该交易的区块：
+查看交易所在区块及其前一个区块的 State Root。本次实验中交易进入 Block 1，因此前一个区块正好是创世区块：
+
+> 下面的 Block 1 是本次实验中转账所在的区块。如果你的交易进入了其他区块，请用 `eth.getTransaction(txHash).blockNumber` 查看实际高度，把第二次查询改为该高度、第一次查询改为该高度减一。
 
 ```javascript
 eth.getBlock(0).stateRoot
@@ -92,7 +96,7 @@ eth.getBlock(1).stateRoot
 
 ![比较交易前后的 State Root](../assets/chapter-06/compare-state-roots.png)
 
-两个结果不同，说明 Block 0 的状态和 Block 1 执行交易后的状态不同。需要注意，State Root 不是只根据转账金额计算的哈希，而是整个区块执行结束后的世界状态根。
+在本次实验中，两个结果不同，说明 Block 0 的状态和 Block 1 执行交易后的状态不同。需要注意，State Root 不是只根据转账金额计算的哈希，而是整个区块执行结束后的世界状态根。
 
 ## 实验二 查询历史账户余额
 
@@ -100,10 +104,14 @@ eth.getBlock(1).stateRoot
 
 先定义实验地址：
 
+> 下面两个地址是作者本地链的示例。请改用第 2 章实际使用的发送、接收地址；也可以通过 `eth.getTransaction(txHash).from` 和 `.to` 核对。
+
 ```javascript
 var sender = "0x71562b71999873db5b286df957af199ec94617f7"
 var receiver = "0x845bd7ef42186e3ac8fa2535317bf24e8a1ccb7f"
 ```
+
+> 下文的 Block 0、Block 1 和余额是本次转账实验的结果。如果你的转账位于其他区块，请改为查询该交易所在区块及其前一个区块，并以自己节点返回的余额为准。
 
 查询 Block 0 结束时的接收账户余额：
 
