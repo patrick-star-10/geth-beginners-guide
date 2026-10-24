@@ -85,3 +85,69 @@ eth.getStorageAt(contractAddress, 0)
 这就是合约账户的持久化状态：交易成功后，后续交易仍能读到它；正常保存并重新打开开发链数据库后，也可以继续读取。要注意，如果换了 `--datadir` 或重新部署合约，原来的地址和状态未必存在。
 
 除了这三种空间，以太坊还提供通过 `TLOAD` 和 `TSTORE` 访问的 **Transient Storage（瞬态存储）**。它能在同一笔交易中供同一合约的内部调用共享，但交易结束后会被清除，不会成为账户的长期状态。这是另一种数据空间，不能把它与 Memory 或持久化 Storage 混为一谈；详见 [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)。
+
+## 实验：追踪 `get()` 中的 `SLOAD`
+
+这次不重新部署合约，也不发送新的链上交易。我们继续使用上一章已执行过 `set(100)` 的 `Storage` 合约，让 `get()` 读取 `number`：
+
+```solidity
+function get() public view returns (uint256) {
+    return number;
+}
+```
+
+如果仍在上一章的 Geth 控制台，`contractAddress` 变量已经存在；重新连接控制台后，需要把它设为**你自己部署的合约地址**。笔记中的地址只是一次本地实验的示例，不保证在另一条开发链或另一个数据目录中可用：
+
+```javascript
+var contractAddress = "0xdb7d6ab1f17c6b31909ae466702703daef9269cf"
+```
+
+`get()` 没有参数，它的调用数据只有四字节函数选择器 `0x6d4ce63c`。根据 [Solidity ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)，选择器来自函数签名 `get()` 的 Keccak-256 哈希前四字节。
+
+```javascript
+var getData = "0x6d4ce63c"
+var result = eth.call({to: contractAddress, data: getData})
+result
+```
+
+![调用 get 后返回的十六进制数据](../assets/chapter-08/get-call-result.png)
+
+本次实验预期返回 32 字节的 ABI 编码值，末尾为 `64`，即十进制的 `100`。也可以在 Geth JavaScript 控制台里转换这个小数值：
+
+```javascript
+web3.toDecimal(result)
+```
+
+![将 get 的返回值转换为十进制 100](../assets/chapter-08/get-decimal-result.png)
+
+`eth.call` 在指定区块的状态上模拟调用，不会把它作为新交易写入链上，因此不会因为这次调用增加发送账户的 Nonce 或创建区块。它也不会修改已保存的合约状态。
+
+接下来用 Geth 的 `debug.traceCall` 追踪同样的模拟调用，并筛出 `SLOAD`：
+
+```javascript
+var readTrace = debug.traceCall(
+  {to: contractAddress, data: getData},
+  "latest",
+  {}
+)
+
+readTrace.structLogs.filter(function(step) {
+  return step.op === "SLOAD"
+})
+```
+
+![get 调用中的 SLOAD 追踪结果](../assets/chapter-08/sload-trace-entry.png)
+
+[Geth 的 `debug_traceCall` 文档](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall)说明，它会在给定区块的状态下模拟并追踪一次调用；默认操作码追踪返回的 `structLogs` 包含每一步的 `op`、`stack` 和 `gasCost` 等字段。它和 `eth.call` 一样，不需要提交链上交易。
+
+在截图的 `SLOAD` 步骤中，`stack` 最后一个元素是 `0x0`，也就是即将读取的 Slot 0。`SLOAD` 消耗这个栈顶键值，把槽中的值压回栈。前面 `eth.call` 返回的 `0x...0064` 则证实读取结果是 `100`。不要把追踪截图中该步骤执行前的栈，与指令执行后的栈混为一谈。
+
+## 为什么这次 `SLOAD` 的 `gasCost` 是 2100？
+
+截图中 `SLOAD` 的 `gasCost` 为 `2100`。按 [EIP-2929](https://eips.ethereum.org/EIPS/eip-2929)，在一次执行中首次访问尚未预热的合约存储槽，属于 cold（冷）访问，`SLOAD` 成本为 2100 Gas；同一执行中再次访问已经预热的同一槽，通常按 warm（热）访问计为 100 Gas。
+
+这些数字解释的是本次截图所采用的规则和执行上下文，不应被理解为任何环境下的固定总费用。Gas 还会受到所用 EVM 规则、访问列表及其他操作码的影响；一次新的 `eth.call` 或 `debug.traceCall` 也不是沿用上一次模拟调用的预热状态。
+
+## 本章结论
+
+Stack 负责传递操作码运算数，Memory 存放当前调用的临时字节数据，Storage 保存合约的持久化状态。通过 `get()`、`eth.call` 和 `debug.traceCall`，我们从返回值与操作码轨迹两侧验证了 `SLOAD` 读取 Slot 0 中的 `100`。它与上一章的 `SSTORE` 写入实验连起来，构成了对同一个状态变量的“写入—读取”闭环。
