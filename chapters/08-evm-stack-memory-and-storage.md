@@ -151,3 +151,7 @@ readTrace.structLogs.filter(function(step) {
 ## 本章结论
 
 Stack 负责传递操作码运算数，Memory 存放当前调用的临时字节数据，Storage 保存合约的持久化状态。通过 `get()`、`eth.call` 和 `debug.traceCall`，我们从返回值与操作码轨迹两侧验证了 `SLOAD` 读取 Slot 0 中的 `100`。它与上一章的 `SSTORE` 写入实验连起来，构成了对同一个状态变量的“写入—读取”闭环。
+
+---
+
+上一章：[第 7 章 EVM 与智能合约执行](07-evm-and-smart-contract-execution.md)

@@ -306,3 +306,5 @@ EVM 是以太坊执行智能合约的确定性、基于栈的虚拟机。Solidit
 ---
 
 上一章：[第 6 章 以太坊状态机与账户状态转换](06-ethereum-state-machine-and-account-transitions.md)
+
+下一章：[第 8 章 EVM 的 Stack、Memory 与 Storage](08-evm-stack-memory-and-storage.md)
