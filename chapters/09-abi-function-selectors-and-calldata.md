@@ -86,3 +86,52 @@ var callData = "0x60fe47b1" + "64".padStart(64, "0")
 ```
 
 函数调用的输入编码与函数执行后的返回值编码是两个相关但不同的过程。下一节会从已发送的 `set(100)` 交易中，把选择器和参数再拆出来核对。
+
+## 实验：拆解自己交易的 `input`
+
+第 7 章执行 `set(100)` 时，`eth.sendTransaction` 返回的交易哈希保存在 `setTx` 中。继续使用**你自己那笔交易**的哈希：如果仍在原控制台，可直接使用 `setTx`；如果重新连接过控制台，请先用当时保存的实际哈希恢复 `setTx`。截图中的 `0x1b7e…` 只是作者本地实验的结果，不能直接照抄。使用了新的 `--datadir` 或重新初始化开发链时，也必须重新发送交易并取得新哈希。
+
+### 读取交易调用数据
+
+```javascript
+var tx = eth.getTransaction(setTx)
+tx.input
+```
+
+![读取 set 100 交易的 input](../assets/chapter-09/set-transaction-input.png)
+
+预期得到前缀为 `0x60fe47b1`、末尾为 `64` 的十六进制数据，与第 7 章构造的 `callData` 相同。如果 `tx` 是 `null`，先检查 `setTx` 是否为自己的交易哈希，以及当前连接的是否是当时使用的开发链。交易对象的 `input` 字段承载调用数据，可参考 [Ethereum JSON-RPC 的交易对象说明](https://ethereum.org/developers/docs/apis/json-rpc/#eth_gettransactionbyhash)。
+
+### 核对函数选择器
+
+前四字节是选择器。由于字符串还包含 `0x` 前缀，截取前 10 个字符即可：
+
+```javascript
+tx.input.slice(0, 10)
+tx.input.slice(0, 10) === web3.sha3("set(uint256)").slice(0, 10)
+```
+
+![核对交易 input 的函数选择器](../assets/chapter-09/selector-match-check.png)
+
+这里应该得到 `0x60fe47b1` 和 `true`。这验证了交易的 `input` 开头确实对应 `set(uint256)`，而不是 `get()`。
+
+### 解出静态参数
+
+跳过前面的 10 个字符，剩下的是参数 `100` 的 32 字节编码：
+
+```javascript
+var parameter = tx.input.slice(10)
+web3.toDecimal("0x" + parameter)
+```
+
+![把 32 字节参数解码为 100](../assets/chapter-09/decode-uint256-argument.png)
+
+本次应得到 `100`。这里用 `web3.toDecimal` 是为了观察这个很小的数；一般的 `uint256` 可能超过 JavaScript 安全整数范围，不应把这种手工转换当作通用 ABI 解码器。
+
+![把交易 input 拆成选择器和参数](../assets/chapter-09/transaction-input-breakdown.png)
+
+这个实验只处理一个静态类型 `uint256`。遇到 `string`、动态数组或更复杂的结构时，编码还涉及偏移量及动态数据区域，应按 [Solidity ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding)解析，或使用可靠的 ABI 解码工具。
+
+## 本章结论
+
+`set(100)` 的交易 `input` 由四字节函数选择器和一个 32 字节参数组成。函数选择器来自 `set(uint256)` 的 Keccak-256 哈希，与读者自己的交易哈希不同：前者在函数签名不变时相同，后者必须使用自己发送交易后得到的值。通过实际交易的 `input`，我们把手动构造的调用数据与链上记录核对了一遍。
