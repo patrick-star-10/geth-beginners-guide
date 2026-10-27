@@ -155,3 +155,5 @@ Stack 负责传递操作码运算数，Memory 存放当前调用的临时字节�
 ---
 
 上一章：[第 7 章 EVM 与智能合约执行](07-evm-and-smart-contract-execution.md)
+
+下一章：[第 9 章 ABI、函数选择器与交易数据编码](09-abi-function-selectors-and-calldata.md)

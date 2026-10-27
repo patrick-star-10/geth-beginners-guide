@@ -135,3 +135,7 @@ web3.toDecimal("0x" + parameter)
 ## 本章结论
 
 `set(100)` 的交易 `input` 由四字节函数选择器和一个 32 字节参数组成。函数选择器来自 `set(uint256)` 的 Keccak-256 哈希，与读者自己的交易哈希不同：前者在函数签名不变时相同，后者必须使用自己发送交易后得到的值。通过实际交易的 `input`，我们把手动构造的调用数据与链上记录核对了一遍。
+
+---
+
+上一章：[第 8 章 EVM 的 Stack、Memory 与 Storage](08-evm-stack-memory-and-storage.md)

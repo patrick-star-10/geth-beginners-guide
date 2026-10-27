@@ -14,6 +14,7 @@
 6. [以太坊状态机与账户状态转换](chapters/06-ethereum-state-machine-and-account-transitions.md)
 7. [EVM 与智能合约执行](chapters/07-evm-and-smart-contract-execution.md)
 8. [EVM 的 Stack、Memory 与 Storage](chapters/08-evm-stack-memory-and-storage.md)
+9. [ABI、函数选择器与交易数据编码](chapters/09-abi-function-selectors-and-calldata.md)
 
 ## 阅读说明
 
