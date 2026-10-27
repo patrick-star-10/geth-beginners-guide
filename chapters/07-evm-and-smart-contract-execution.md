@@ -185,7 +185,13 @@ eth.getStorageAt(contractAddress, 0)
 
 ## 构造 `set(100)` 的调用数据
 
-调用合约函数时，交易的 `data` 字段要遵循 Solidity ABI 编码。对于 `set(100)`，可以在控制台中手动拼出调用数据：
+调用合约函数时，交易的 `data` 字段要遵循 Solidity ABI 编码。先确定 `set(uint256 _number)` 的规范函数签名：保留函数名和参数类型，去掉参数名，得到 `set(uint256)`。对这个签名计算 Keccak-256 哈希，取前四个字节，就是函数选择器。在 Geth JavaScript 控制台中可以直接验证：
+
+```javascript
+web3.sha3("set(uint256)").slice(0, 10)
+```
+
+结果是 `0x60fe47b1`。`slice(0, 10)` 保留了开头的 `0x` 和后面 8 个十六进制字符，也就是四个字节。得到选择器后，就可以为 `set(100)` 手动拼出调用数据：
 
 ```javascript
 var callData = "0x60fe47b1" + "64".padStart(64, "0")
@@ -201,7 +207,7 @@ callData
 | `60fe47b1` | `set(uint256)` 的四字节函数选择器 |
 | 后面的 64 个十六进制字符 | 参数 `100` 的 32 字节 ABI 编码 |
 
-函数选择器是函数签名 `set(uint256)` 的 Keccak-256 哈希前四个字节。参数部分的末尾是 `64`，它是十六进制的 `100`；前面的零把这个 `uint256` 补齐为 32 字节。Solidity 的 [ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)定义了函数选择器和参数编码规则。
+参数部分的末尾是 `64`，它是十六进制的 `100`；前面的零把这个 `uint256` 补齐为 32 字节。Solidity 的 [ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)定义了函数选择器和参数编码规则。关于规范函数签名、选择器以及参数编码的完整拆解，见[第 9 章：ABI、函数选择器与交易数据编码](09-abi-function-selectors-and-calldata.md)。
 
 ## 调用合约并检查回执
 
