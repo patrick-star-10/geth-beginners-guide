@@ -6,6 +6,8 @@
 
 ## 内容
 
+[准备篇：实验环境与 Geth 安装](chapters/00-environment-and-installation.md)
+
 1. [运行本地 Geth 开发节点](chapters/01-running-a-local-geth-dev-chain.md)
 2. [发送第一笔 ETH 交易](chapters/02-sending-the-first-eth-transaction.md)
 3. [理解交易生命周期与 Nonce](chapters/03-understanding-transaction-lifecycle-and-nonce.md)
@@ -19,6 +21,8 @@
 ## 阅读说明
 
 本教程面向刚开始接触 Geth 和以太坊节点的读者。内容以动手实验为主，并逐步解释命令背后的执行层概念。
+
+教程中的作者实验环境为 Ubuntu 24.04.1 LTS（Linux amd64）、源码编译的 Geth `v1.17.8-unstable`（提交标识 `b10c4ecc`，版本串日期 `2026-10-08`）、Go `1.25.8`，实验数据使用 Pebble。**这些是实验记录，不是复现教程的硬性版本要求**；读者可以按[准备篇](chapters/00-environment-and-installation.md)安装适合自己的 Geth，并记录实际版本。Geth 官方建议大多数用户选择[稳定版本](https://geth.ethereum.org/docs/getting-started/installing-geth)。
 
 截图和命令输出中的账户或合约地址、交易或区块哈希、State Root 等，均来自一次本地实验。复现时请使用**自己节点实际返回的值**，不必与截图一致；函数签名不变时，相应的函数选择器则可以照用。
 
