@@ -26,47 +26,56 @@ Geth/v1.17.8-unstable-b10c4ecc-20261008/linux-amd64/go1.25.8
 
 Pebble 是这次实验的数据目录所用的数据库引擎，**不能从上面的 Geth 版本串读出**。本教程前几章的开发链实验不依赖必须使用 Pebble；若要核对自己的实际引擎，请查看节点启动时有关数据库的日志，不要仅凭版本号推断。
 
-## 在 Ubuntu 上准备编译工具
+## 安装构建依赖
 
-在 Ubuntu 终端安装 Git、Make 和常用编译工具：
-
-```bash
-sudo apt update
-sudo apt install -y git make build-essential
-```
-
-还需要安装 Go。请按 [Go 官方安装说明](https://go.dev/doc/install)安装与自己所选 Geth 源码兼容的 Go 工具链；作者用的是 `go1.25.8`，读者不必锁定这个版本。安装后检查：
+在 Ubuntu 终端执行作者当时使用的命令，安装 Git 和常用编译工具；`build-essential` 也会安装 Make：
 
 ```bash
-go version
-git --version
-make --version
+sudo apt-get update
+sudo apt-get install -y git build-essential
 ```
 
-如编译时提示 Go 版本不满足要求，以所选源码的 `go.mod` 和编译错误信息为准，再更新 Go 工具链。
+## 克隆源码
 
-## 从源码编译 Geth
-
-[Geth 官方文档](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source-code)给出的 Linux 源码构建流程是克隆 `go-ethereum` 仓库，然后运行 `make geth`。这里把源码放在 `~/ethereum/go-ethereum`，与后续章节的命令保持一致：
+[Geth 官方安装文档](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source-code)使用 `git clone` 获取源码。这里把源码放在 `~/ethereum/go-ethereum`，与后续章节的命令保持一致：
 
 ```bash
 mkdir -p ~/ethereum
 cd ~/ethereum
 git clone https://github.com/ethereum/go-ethereum.git
 cd go-ethereum
-make geth
 ```
 
 直接克隆默认分支会得到克隆当时的源码，版本可能是 `unstable`，不会自动与作者的 `b10c4ecc` 相同。如果需要稳定版本或可重复的特定版本，请先从 [官方发布页](https://github.com/ethereum/go-ethereum/releases)选择并切换到相应的发布标签，再运行 `make geth`。不要把作者的开发版提交当作所有读者必须使用的版本。
 
-官方构建命令会把可执行文件放在 `build/bin/geth`。检查构建结果，并记录自己的源码提交：
+## 检查源码和 Go 版本要求
+
+在 `go-ethereum` 目录中，先查看源码版本标识、`go.mod` 声明的 Go 版本要求，以及本机的 Go 版本：
+
+```bash
+git describe --tags --always
+grep '^go ' go.mod
+go version
+```
+
+`git describe` 给出与当前源码相关的标签描述，不一定是精确的提交标识；需要记录具体提交时，可使用下面的 `git rev-parse`。如果尚未安装 Go，或现有 Go 版本不满足所选源码的要求，请先按 [Go 官方安装说明](https://go.dev/doc/install)准备相应工具链，再编译。作者使用 `go1.25.8`，但读者不必锁定这个版本。
+
+## 编译并核对版本
+
+确认 Go 工具链可用后，按 [Geth 官方源码构建流程](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source-code)编译：
+
+```bash
+make geth
+```
+
+官方构建命令会把可执行文件放在 `build/bin/geth`。检查编译出的版本，并记录自己使用的源码提交：
 
 ```bash
 ./build/bin/geth version
 git rev-parse --short HEAD
 ```
 
-如果找不到 `./build/bin/geth`，先检查 `make geth` 是否报错，以及当前目录是否为 `~/ethereum/go-ethereum`。之后的章节均用 `./build/bin/geth` 运行，不要求把程序安装到系统目录。
+如果找不到 `./build/bin/geth`，先检查 `make geth` 是否报错、Go 版本是否满足源码要求，以及当前目录是否为 `~/ethereum/go-ethereum`。之后的章节均用 `./build/bin/geth` 运行，不要求把程序安装到系统目录。
 
 ## 关于 Pebble 与开发链数据目录
 
