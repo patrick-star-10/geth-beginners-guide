@@ -1,5 +1,7 @@
 # 第 1 章 运行本地 Geth 开发节点
 
+本章默认已按[准备篇](00-environment-and-installation.md)编译好 Geth，并将源码放在 `~/ethereum/go-ethereum`。
+
 2022 年 9 月 15 日，以太坊完成 The Merge，从 PoW 转换为 PoS。
 
 ## 以太坊节点包含什么
@@ -159,5 +161,7 @@ web3.fromWei(
 ![查看本地开发账户余额](../assets/chapter-01/development-account-balance.png)
 
 ---
+
+上一章：[准备篇 实验环境与 Geth 安装](00-environment-and-installation.md)
 
 下一章：[第 2 章 发送第一笔 ETH 交易](02-sending-the-first-eth-transaction.md)
