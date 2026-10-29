@@ -112,3 +112,34 @@ trace.structLogs.filter(function(s) {
 ![筛选出 get 调用轨迹中的函数分发指令](../assets/chapter-10/dispatcher-ops-trace.png)
 
 截图中的 `CALLDATALOAD` 读取调用数据，`SHR` 将开头四字节移到低位，后续 `EQ` 比较选择器，匹配时由 `JUMPI` 进入 `get()` 的路径。因为 `getData` 只有四字节，读取 32 字节时其余位置会补零。轨迹中还可能出现用于其他检查的 `JUMPI`，不能把每个跳转都当作函数匹配；应结合 `pc` 和 `stack` 判断。[Geth 的基础追踪文档](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)介绍了这些逐条操作码记录。不同编译设置下，`pc`、栈值和分支顺序不必与截图完全相同。
+
+## 实验：输入未匹配的选择器
+
+如果调用数据开头的选择器找不到对应函数，执行路径取决于合约是否定义了能够处理它的 `fallback` 函数。本章的 `Storage` 合约没有定义 `fallback`，因此可以用一个错误选择器观察回退路径；其他合约未必会得到相同结果。[Solidity 文档中的 `fallback` 说明](https://docs.soliditylang.org/en/latest/contracts.html#fallback-function)解释了这种特殊函数何时被调用。
+
+仍使用上面的 `contractAddress`，模拟发送 `0x12345678`：
+
+```javascript
+var badTrace = debug.traceCall(
+  {to: contractAddress, data: "0x12345678"},
+  "latest",
+  {}
+)
+badTrace.failed
+```
+
+![错误选择器的模拟调用失败](../assets/chapter-10/unknown-selector-trace-failed.png)
+
+本次实验返回 `true`。这表示**模拟执行失败**，不是某笔已上链交易的回执。查看轨迹末尾：
+
+```javascript
+badTrace.structLogs.slice(-5).map(function(s) {
+  return {pc: s.pc, op: s.op}
+})
+```
+
+![错误选择器的执行轨迹以 REVERT 结束](../assets/chapter-10/unknown-selector-revert-trace.png)
+
+截图中最后一条指令是 `REVERT`：运行时代码没有找到匹配的函数入口，也没有可接收这段数据的 `fallback`，于是撤销本次调用。不同编译版本下，末尾的其他指令和 `pc` 数值可能不同，重点是结合 `failed` 与执行路径判断结果。
+
+至此可以把两件事连起来：ABI 规则决定调用数据怎样编码；EVM 则执行合约的运行时代码，由其中的分发逻辑读取选择器、比较并跳转。**EVM 不会凭函数名直接调用 Solidity 函数。**
