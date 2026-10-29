@@ -1,10 +1,20 @@
 # 第 10 章 EVM 如何找到并执行正确的合约函数
 
-第 9 章把 `set(100)` 的调用数据拆成了 `set(uint256)` 的四字节选择器和参数 `100` 的 32 字节 ABI 编码。交易到达合约地址后，EVM 看到的仍是一段字节；它并不认识 Solidity 函数名。那么，为什么这段数据最终会进入 `set`，而不是 `get`？本章先理解合约运行时代码中的函数分发逻辑，再用 Geth 的执行轨迹验证它。
+上一课我们学习了 ABI 编码，知道 `set(100)` 会被转换成：
 
-## 合约运行时代码负责分发
+```text
+0x60fe47b10000000000000000000000000000000000000000000000000000000000000064
+```
 
-继续使用第 7 章部署的 `Storage` 合约：
+其中，`0x60fe47b1` 是 `set(uint256)` 的函数选择器，后面 32 字节是参数 `100` 的 ABI 编码。
+
+但现在出现一个新问题：既然 EVM 收到的只是一串字节，它怎么知道应该运行 `set()`，而不是 `get()`？
+
+答案是：**合约字节码中的函数分发器（Function Dispatcher）**。
+
+## 理解函数分发器
+
+继续使用前面部署的 `Storage` 合约，它有两个公开函数：
 
 ```solidity
 contract Storage {
@@ -20,49 +30,103 @@ contract Storage {
 }
 ```
 
-Solidity 编译器生成的**运行时代码**包含处理外部调用的分发逻辑：读取调用数据开头的函数选择器，与合约支持的选择器比较，匹配后跳到对应的代码位置。选择器的计算方法已在[第 9 章](09-abi-function-selectors-and-calldata.md)介绍；它不是 EVM 内置的“函数表”，而是编译后的字节码执行了这些比较和跳转。[Solidity ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)规定调用数据的前四字节用于指定函数。
+编译后，合约运行时代码中会有一段函数分发逻辑。它读取 `calldata` 开头的 4 字节，与合约支持的函数选择器比较，然后跳转到对应的代码位置。选择器的计算方法见[第 9 章](09-abi-function-selectors-and-calldata.md)；[Solidity ABI 规范](https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector)也规定了调用数据的前 4 字节用于指定函数。
 
 ![Storage 合约按函数选择器分发调用数据](../assets/chapter-10/function-dispatch-overview.png)
 
-示意图中的 `set()` 路径会解码参数并写入 Storage，`get()` 路径会读取 Storage 并编码返回值。具体生成哪些指令、按什么顺序比较，会受编译器版本和优化设置影响；不能把示意图当成所有合约的固定字节码。
+图中的 `set()` 和 `get()` 是两条不同的执行路径。
 
-## 从调用数据中取出选择器
+## 函数分发器中的四条核心指令
 
-以下四个操作码是理解这个实验的关键；表格是[以太坊操作码参考](https://ethereum.org/developers/docs/evm/opcodes/)所定义语义的简化说明：
+先看四条关键指令（具体语义可对照[以太坊操作码参考](https://ethereum.org/developers/docs/evm/opcodes/)）：
 
 ![函数分发相关的四个 EVM 操作码](../assets/chapter-10/dispatcher-opcodes.png)
 
-以 `set(100)` 为例，调用数据开头是 `0x60fe47b1`，后面跟着参数的 ABI 编码。`CALLDATALOAD` 从指定偏移量读取 **32 字节**；如果偏移量是 0，读到的第一个 32 字节字（word）以选择器开头，后面还有参数编码的前 28 字节，**并不只是选择器本身**。在本例中，这些参数高位都是零。
+### 第一步：CALLDATALOAD
 
-为了提取最左边的 4 字节，可以把这个 256 位字右移 `256 − 4 × 8 = 224` 位。`PUSH1 0xe0` 可将十六进制的 `0xe0`（十进制 `224`）压栈，`SHR` 再完成右移，结果就是 `0x60fe47b1`。编译后的代码可能用 `PUSH0` 提供偏移量 0，也可能用其他等价指令；这里说明的是提取原理，不要求读者在所有版本里找到完全相同的指令序列。
+例如传入：
 
-随后，`EQ` 将提取出的选择器与已知选择器比较，`JUMPI` 在条件满足时跳到对应的 `JUMPDEST`。例如 `set(uint256)` 对应 `0x60fe47b1`，`get()` 对应 `0x6d4ce63c`。可以把分发过程概念化为：
+```text
+0x60fe47b10000000000000000000000000000000000000000000000000000000000000064
+```
+
+执行：
+
+```text
+PUSH0
+CALLDATALOAD
+```
+
+`PUSH0` 将偏移量 `0` 压入栈。`CALLDATALOAD` 从 `calldata` 的第 0 字节开始读取 **32 字节**，得到：
+
+```text
+0x60fe47b100000000000000000000000000000000000000000000000000000000
+```
+
+注意：这还不是单独的 4 字节选择器。参数 `100` 编码的最后一个字节是 `0x64`，位于整段调用数据的第 36 字节，不在这次读取的前 32 字节中。
+
+### 第二步：SHR
+
+为了取出前 4 字节，需要把读到的 256 位数据右移 **224 位**。为什么是 224？因为 `256 − 4 × 8 = 224`。
+
+因此执行：
+
+```text
+PUSH1 0xe0
+SHR
+```
+
+`0xe0` 是十进制的 `224`。右移之后得到：
+
+```text
+0x60fe47b1
+```
+
+### 第三步：EQ
+
+EVM 将提取出的选择器与合约中已知的选择器比较：
+
+```text
+0x60fe47b1 == 0x60fe47b1
+```
+
+`EQ` 返回 `1`，表示相等。
+
+### 第四步：JUMPI
+
+`JUMPI` 根据栈中的条件和跳转目标决定是否改变程序计数器 `PC`。如果条件不为零，就跳到指定的 `JUMPDEST`，进入匹配函数的执行路径。
+
+以下是概念化逻辑，不是 Solidity 编译器生成的原始代码：
 
 ```javascript
 if (selector === "0x60fe47b1") {
-  // 进入 set(uint256) 的执行路径
+  // 执行 set(uint256)
 } else if (selector === "0x6d4ce63c") {
-  // 进入 get() 的执行路径
+  // 执行 get()
 } else {
-  // 若没有可处理该调用的 fallback，调用失败
+  // 没有匹配函数，且没有可处理它的 fallback 时，调用失败
 }
 ```
 
-这只是帮助理解的伪代码，不是 Solidity 编译器输出的 JavaScript 或逐字对应的 EVM 指令。接下来要用真实轨迹观察一次 `get()` 调用。
+这就是函数分发器的工作原理。这里的指令顺序用于解释原理；实际编译得到的指令可能因编译器版本或优化设置而不同。接下来用 Geth 的真实轨迹观察一次 `get()` 调用。
 
-## 实验：用 Geth 找到函数分发过程
+## 实验：在 Geth 中找到函数分发器
 
-本实验沿用第 7 章部署的 `Storage` 合约，以及保存其地址的 `contractAddress` 变量。若已重新连接控制台，请把它设为**你自己部署的合约地址**；截图中的 `0xdb7d…` 是作者本地实验的地址，不能直接照抄。先检查该地址确实有合约运行时代码：
+### 第一步：准备合约地址和调用数据
+
+进入 Geth JavaScript 控制台，使用第 7 章部署的 `Storage` 合约地址。把 `contractAddress` 设为**你自己部署的合约地址**；截图中的 `0xdb7d…` 是作者的实验地址，不能直接照抄：
+
+```javascript
+var contractAddress = "填入你自己部署的合约地址"
+```
+
+可以先检查地址上是否有代码：
 
 ```javascript
 eth.getCode(contractAddress)
 ```
 
-若返回 `"0x"`，说明当前链上这个地址没有代码，应检查是否连接了原来的开发链、是否使用了正确的数据目录和合约地址。
-
-### 准备 `get()` 的调用数据
-
-在 Geth JavaScript 控制台计算 `get()` 的选择器；它没有输入参数，因此这就是完整的调用数据：
+若返回 `"0x"`，应检查是否连接了原来的开发链，以及数据目录和合约地址是否正确。然后通过函数签名计算 `get()` 的选择器：
 
 ```javascript
 var getData = web3.sha3("get()").slice(0, 10)
@@ -71,11 +135,11 @@ getData
 
 ![在 Geth 控制台计算 get 的调用数据](../assets/chapter-10/get-selector-console.png)
 
-结果应为 `0x6d4ce63c`。这个值由函数签名决定，不需要替换成个人实验中的哈希。
+结果应为 `0x6d4ce63c`。`get()` 没有输入参数，所以这也是完整的调用数据；这个选择器由函数签名决定，不需要替换。
 
-### 模拟并追踪调用
+### 第二步：追踪 EVM 执行
 
-使用第 8 章已经接触过的 `debug.traceCall`：
+执行：
 
 ```javascript
 var trace = debug.traceCall(
@@ -88,9 +152,11 @@ trace.failed
 
 ![Geth 模拟 get 调用且追踪结果未失败](../assets/chapter-10/get-trace-failed-false.png)
 
-本次实验返回 `false`，表示**这次模拟调用**没有失败；`debug.traceCall` 不会把它作为新交易写入链上。[Geth 的 `debug_traceCall` 文档](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall)说明它会在给定区块状态下执行调用并返回追踪结果。
+预期 `trace.failed` 返回 `false`，表示**这次模拟调用**没有失败；`debug.traceCall` 不会把它作为新交易写入链上。用法见 [Geth 的 `debug_traceCall` 文档](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall)。
 
-先浏览开头的指令：
+### 第三步：观察前 25 条 EVM 指令
+
+执行：
 
 ```javascript
 trace.structLogs.slice(0, 25).map(function(s) {
@@ -98,7 +164,11 @@ trace.structLogs.slice(0, 25).map(function(s) {
 })
 ```
 
-`pc` 是程序计数器，`op` 是操作码，`stack` 是该步附近的栈内容。可以留意 `CALLDATASIZE`、`CALLDATALOAD`、`SHR`、`EQ` 和 `JUMPI`：`CALLDATASIZE` 取得调用数据的字节长度，编译器可能先据此检查输入是否足够长。前 25 步不一定包含完整分发过程，所以再从完整轨迹中筛选：
+留意 `CALLDATASIZE`、`CALLDATALOAD`、`SHR`、`EQ` 和 `JUMPI`。`CALLDATASIZE` 取得输入数据的字节数，可能用于先检查输入长度。`pc` 是程序计数器，`op` 是操作码，`stack` 是栈内容。前 25 步不一定包含完整分发过程，所以还要做下一步。
+
+### 第四步：只查看函数分发的关键指令
+
+为了不被大量日志干扰，从完整轨迹中筛选：
 
 ```javascript
 var ops = ["CALLDATALOAD", "SHR", "EQ", "JUMPI"]
@@ -111,9 +181,9 @@ trace.structLogs.filter(function(s) {
 
 ![筛选出 get 调用轨迹中的函数分发指令](../assets/chapter-10/dispatcher-ops-trace.png)
 
-截图中的 `CALLDATALOAD` 读取调用数据，`SHR` 将开头四字节移到低位，后续 `EQ` 比较选择器，匹配时由 `JUMPI` 进入 `get()` 的路径。因为 `getData` 只有四字节，读取 32 字节时其余位置会补零。轨迹中还可能出现用于其他检查的 `JUMPI`，不能把每个跳转都当作函数匹配；应结合 `pc` 和 `stack` 判断。[Geth 的基础追踪文档](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)介绍了这些逐条操作码记录。不同编译设置下，`pc`、栈值和分支顺序不必与截图完全相同。
+结合截图中的 `pc` 和 `stack`，可以沿着 `CALLDATALOAD` → `SHR` → `EQ` → `JUMPI` 还原这次调用的分发过程。`getData` 只有 4 字节，读取 32 字节时其余位置会补零。轨迹中也可能有用于其他检查的 `JUMPI`，不能把每个跳转都当作函数匹配。不同编译设置下，`pc` 和分支顺序也可能不同。[Geth 的基础追踪文档](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)介绍了逐条操作码记录。
 
-## 实验：输入未匹配的选择器
+## 如果输入错误的选择器会怎样？
 
 如果调用数据开头的选择器找不到对应函数，执行路径取决于合约是否定义了能够处理它的 `fallback` 函数。本章的 `Storage` 合约没有定义 `fallback`，因此可以用一个错误选择器观察回退路径；其他合约未必会得到相同结果。[Solidity 文档中的 `fallback` 说明](https://docs.soliditylang.org/en/latest/contracts.html#fallback-function)解释了这种特殊函数何时被调用。
 
