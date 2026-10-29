@@ -143,3 +143,7 @@ badTrace.structLogs.slice(-5).map(function(s) {
 截图中最后一条指令是 `REVERT`：运行时代码没有找到匹配的函数入口，也没有可接收这段数据的 `fallback`，于是撤销本次调用。不同编译版本下，末尾的其他指令和 `pc` 数值可能不同，重点是结合 `failed` 与执行路径判断结果。
 
 至此可以把两件事连起来：ABI 规则决定调用数据怎样编码；EVM 则执行合约的运行时代码，由其中的分发逻辑读取选择器、比较并跳转。**EVM 不会凭函数名直接调用 Solidity 函数。**
+
+---
+
+上一章：[第 9 章 ABI、函数选择器与交易数据编码](09-abi-function-selectors-and-calldata.md)

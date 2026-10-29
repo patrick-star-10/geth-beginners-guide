@@ -165,3 +165,5 @@ web3.toDecimal("0x" + parameter)
 ---
 
 上一章：[第 8 章 EVM 的 Stack、Memory 与 Storage](08-evm-stack-memory-and-storage.md)
+
+下一章：[第 10 章 EVM 如何找到并执行正确的合约函数](10-function-dispatch-and-evm-tracing.md)
