@@ -49,3 +49,66 @@ if (selector === "0x60fe47b1") {
 ```
 
 这只是帮助理解的伪代码，不是 Solidity 编译器输出的 JavaScript 或逐字对应的 EVM 指令。接下来要用真实轨迹观察一次 `get()` 调用。
+
+## 实验：用 Geth 找到函数分发过程
+
+本实验沿用第 7 章部署的 `Storage` 合约，以及保存其地址的 `contractAddress` 变量。若已重新连接控制台，请把它设为**你自己部署的合约地址**；截图中的 `0xdb7d…` 是作者本地实验的地址，不能直接照抄。先检查该地址确实有合约运行时代码：
+
+```javascript
+eth.getCode(contractAddress)
+```
+
+若返回 `"0x"`，说明当前链上这个地址没有代码，应检查是否连接了原来的开发链、是否使用了正确的数据目录和合约地址。
+
+### 准备 `get()` 的调用数据
+
+在 Geth JavaScript 控制台计算 `get()` 的选择器；它没有输入参数，因此这就是完整的调用数据：
+
+```javascript
+var getData = web3.sha3("get()").slice(0, 10)
+getData
+```
+
+![在 Geth 控制台计算 get 的调用数据](../assets/chapter-10/get-selector-console.png)
+
+结果应为 `0x6d4ce63c`。这个值由函数签名决定，不需要替换成个人实验中的哈希。
+
+### 模拟并追踪调用
+
+使用第 8 章已经接触过的 `debug.traceCall`：
+
+```javascript
+var trace = debug.traceCall(
+  {to: contractAddress, data: getData},
+  "latest",
+  {}
+)
+trace.failed
+```
+
+![Geth 模拟 get 调用且追踪结果未失败](../assets/chapter-10/get-trace-failed-false.png)
+
+本次实验返回 `false`，表示**这次模拟调用**没有失败；`debug.traceCall` 不会把它作为新交易写入链上。[Geth 的 `debug_traceCall` 文档](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debug_tracecall)说明它会在给定区块状态下执行调用并返回追踪结果。
+
+先浏览开头的指令：
+
+```javascript
+trace.structLogs.slice(0, 25).map(function(s) {
+  return {pc: s.pc, op: s.op, stack: s.stack}
+})
+```
+
+`pc` 是程序计数器，`op` 是操作码，`stack` 是该步附近的栈内容。可以留意 `CALLDATASIZE`、`CALLDATALOAD`、`SHR`、`EQ` 和 `JUMPI`：`CALLDATASIZE` 取得调用数据的字节长度，编译器可能先据此检查输入是否足够长。前 25 步不一定包含完整分发过程，所以再从完整轨迹中筛选：
+
+```javascript
+var ops = ["CALLDATALOAD", "SHR", "EQ", "JUMPI"]
+trace.structLogs.filter(function(s) {
+  return ops.indexOf(s.op) !== -1
+}).map(function(s) {
+  return {pc: s.pc, op: s.op, stack: s.stack}
+})
+```
+
+![筛选出 get 调用轨迹中的函数分发指令](../assets/chapter-10/dispatcher-ops-trace.png)
+
+截图中的 `CALLDATALOAD` 读取调用数据，`SHR` 将开头四字节移到低位，后续 `EQ` 比较选择器，匹配时由 `JUMPI` 进入 `get()` 的路径。因为 `getData` 只有四字节，读取 32 字节时其余位置会补零。轨迹中还可能出现用于其他检查的 `JUMPI`，不能把每个跳转都当作函数匹配；应结合 `pc` 和 `stack` 判断。[Geth 的基础追踪文档](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)介绍了这些逐条操作码记录。不同编译设置下，`pc`、栈值和分支顺序不必与截图完全相同。
