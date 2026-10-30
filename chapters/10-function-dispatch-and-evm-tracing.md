@@ -214,6 +214,19 @@ badTrace.structLogs.slice(-5).map(function(s) {
 
 至此可以把两件事连起来：ABI 规则决定调用数据怎样编码；EVM 则执行合约的运行时代码，由其中的分发逻辑读取选择器、比较并跳转。**EVM 不会凭函数名直接调用 Solidity 函数。**
 
+## 章节自测
+
+先试着自己回答，再对照参考答案。
+
+### 题目
+
+1. 节点怎样找到 `Storage` 合约？合约怎样选中 `get()`？
+2. `get()` 只有 4 字节调用数据，`CALLDATALOAD` 读取 32 字节时会怎样？为什么还要 `SHR`？
+3. 为什么右移 224 位？`EQ` 和 `JUMPI` 各做什么？
+4. `debug.traceCall` 得到 `trace.failed === false` 说明什么？会产生链上交易吗？
+5. 未知选择器 `0x12345678` 在没有 `fallback` 的 `Storage` 合约中会怎样？
+6. 筛出的每个 `JUMPI` 都代表跳入目标函数吗？
+
 ---
 
 上一章：[第 9 章 ABI、函数选择器与交易数据编码](09-abi-function-selectors-and-calldata.md)
