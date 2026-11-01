@@ -126,3 +126,75 @@ runtimeCode
 这段指令的常见用途是初始化 Solidity 的空闲内存指针（Free Memory Pointer）。执行结束后，内存偏移量 `0x40` 处保存的值是 `0x80`，意味着编译器约定可以从偏移量 `0x80` 开始安排后续动态内存分配。
 
 注意：这是 Solidity 编译器采用的[内存布局约定](https://docs.soliditylang.org/en/latest/internals/layout_in_memory.html)，不是 EVM 强制所有程序必须遵守的规则。
+
+## 实验三：将字节码与真实执行指令对应起来
+
+我们现在知道字节码开头的含义了。但是，如何证明 Geth 确实执行了这些指令？
+
+我们使用上一课已经学过的 `debug.traceCall()`。
+
+### 第一步：生成 `get()` 的函数选择器
+
+```javascript
+var getData = web3.sha3("get()").slice(0, 10)
+```
+
+### 第二步：追踪执行过程
+
+```javascript
+var trace = debug.traceCall({to: contractAddress, data: getData}, "latest", {})
+```
+
+### 第三步：查看前 15 条指令
+
+```javascript
+trace.structLogs.slice(0, 15).map(function(s) {
+  return {pc: s.pc, op: s.op, stack: s.stack}
+})
+```
+
+![追踪 get 调用时前几条 EVM 指令及其栈内容](../assets/chapter-11/runtime-trace-first-15-a.png)
+
+![追踪 get 调用时后续指令及其栈内容](../assets/chapter-11/runtime-trace-first-15-b.png)
+
+预计可以看到类似的执行指令：
+
+```text
+PUSH1
+PUSH1
+MSTORE
+CALLVALUE
+DUP1
+ISZERO
+PUSH1
+JUMPI
+...
+```
+
+具体内容以你的实际 Trace 为准。这里的 `pc` 是指令在字节码中的**字节偏移量**，不是第几条指令，也不是源代码行号。[Geth 的 Opcode Tracer](https://geth.ethereum.org/docs/developers/evm-tracing/basic-traces)通过记录 PC、操作码、Gas 和 Stack 等信息，帮助开发者还原 EVM 的执行过程。
+
+![Solidity、字节码、Opcode 和 Geth 解释器的作用对照](../assets/chapter-11/bytecode-concepts-table.png)
+
+### 分析指令
+
+#### 第一阶段：初始化 EVM Memory
+
+观察到的前三条指令：
+
+```text
+PC 0  PUSH1
+PC 2  PUSH1
+PC 4  MSTORE
+```
+
+对应 Runtime Bytecode 的开头：`60 80 60 40 52`。它们实际上是：
+
+```text
+PUSH1 0x80
+PUSH1 0x40
+MSTORE
+```
+
+这三条指令将 `0x80` 存入 Memory 偏移量 `0x40` 开始的 32 字节区域，设置 Solidity 的空闲内存指针。
+
+你需要记住：Memory 初始化并不是 `get()` 函数的业务逻辑，而是编译器生成的运行时准备工作。
