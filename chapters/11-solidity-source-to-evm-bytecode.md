@@ -198,3 +198,35 @@ MSTORE
 这三条指令将 `0x80` 存入 Memory 偏移量 `0x40` 开始的 32 字节区域，设置 Solidity 的空闲内存指针。
 
 你需要记住：Memory 初始化并不是 `get()` 函数的业务逻辑，而是编译器生成的运行时准备工作。
+
+#### 第二阶段：检查调用是否携带 ETH
+
+接下来你的 Trace 是：
+
+```text
+PC 5   CALLVALUE
+PC 6   DUP1
+PC 7   ISZERO
+PC 8   PUSH1
+PC 10  JUMPI
+PC 14  JUMPDEST
+PC 15  POP
+```
+
+这部分代码对应 Solidity 的一个规则：合约的 `get()` 函数是 `function get() public view returns (uint256)`，它没有声明 `payable`，因此调用时不能向它发送非零数量的 ETH。
+
+现在我们看 Geth 是怎么执行检查的：
+
+![CALLVALUE、ISZERO 和 JUMPI 检查这次调用是否附带 ETH](../assets/chapter-11/callvalue-nonpayable-check.png)
+
+其中最重要的是：`ISZERO` → `JUMPI`。你可以将它理解为：
+
+```text
+if msgValue == 0 {
+    // 继续执行
+} else {
+    // 拒绝调用
+}
+```
+
+当然，这是便于理解的伪代码，并不意味着 EVM 内部直接运行 Go 的 `if`。这次调用没有附带 ETH，所以顺利通过了检查。
