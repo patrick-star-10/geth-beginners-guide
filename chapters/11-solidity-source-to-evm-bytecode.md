@@ -102,3 +102,27 @@ runtimeCode
 为什么这样计算？因为 `0x` 是十六进制前缀，不是字节码内容；每两个十六进制字符表示一个字节。截图中的 `297` 是这次实验的结果，你的合约可能不同。
 
 这里要注意，**字节长度不等于 EVM 指令数量**，因为像 `PUSH1`、`PUSH2` 等指令后面还会携带立即数。
+
+## 实验二：认识真正的 EVM Opcode
+
+现在来看合约字节码开头的一段：`6080604052`。
+
+把它拆开：
+
+| 字节 | Opcode | 含义 |
+| --- | --- | --- |
+| `60 80` | `PUSH1 0x80` | 将 128 压入栈 |
+| `60 40` | `PUSH1 0x40` | 将 64 压入栈 |
+| `52` | `MSTORE` | 将数值写入内存 |
+
+这段代码在 EVM 中的执行过程是：
+
+![PUSH1 0x80 把 0x80 压入栈](../assets/chapter-11/push-0x80.png)
+
+![PUSH1 0x40 把 0x40 压入栈顶](../assets/chapter-11/push-0x40.png)
+
+![MSTORE 把 0x80 写入 Memory 的 0x40 位置](../assets/chapter-11/mstore-free-memory-pointer.png)
+
+这段指令的常见用途是初始化 Solidity 的空闲内存指针（Free Memory Pointer）。执行结束后，内存偏移量 `0x40` 处保存的值是 `0x80`，意味着编译器约定可以从偏移量 `0x80` 开始安排后续动态内存分配。
+
+注意：这是 Solidity 编译器采用的[内存布局约定](https://docs.soliditylang.org/en/latest/internals/layout_in_memory.html)，不是 EVM 强制所有程序必须遵守的规则。
