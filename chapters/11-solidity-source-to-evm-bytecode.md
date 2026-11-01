@@ -230,3 +230,35 @@ if msgValue == 0 {
 ```
 
 当然，这是便于理解的伪代码，并不意味着 EVM 内部直接运行 Go 的 `if`。这次调用没有附带 ETH，所以顺利通过了检查。
+
+#### 第三阶段：检查 calldata 的长度
+
+接下来你观察到：
+
+```text
+PC 16  PUSH1
+PC 18  CALLDATASIZE
+PC 19  LT
+PC 20  PUSH1
+PC 22  JUMPI
+```
+
+对应字节码：`60 04 36 10 60 30 57`。将它翻译成 Opcode：
+
+```text
+PUSH1 0x04
+CALLDATASIZE
+LT
+PUSH1 0x30
+JUMPI
+```
+
+结合 Stack 数据分析。传入的调用数据是 `0x6d4ce63c`，正好 **4 字节**，因此 `CALLDATASIZE = 4`。
+
+EVM 在 `LT` 指令执行时判断：`4 < 4`。结果为 `false`，即 `0`。所以后面的 `JUMPI` 不会跳到 `0x30` 指定的分支，而是继续执行下一条指令。
+
+这段逻辑的核心意义是：如果 calldata 不足 4 字节，就无法按照正常方式提取完整的函数选择器，因此需要走另一条处理路径。对于这个没有 `fallback` 函数的合约，那条路径最终会拒绝调用。
+
+到这里，已经看到了三个实际运行阶段：
+
+![运行时代码执行的三个已观察阶段](../assets/chapter-11/three-runtime-stages.png)
