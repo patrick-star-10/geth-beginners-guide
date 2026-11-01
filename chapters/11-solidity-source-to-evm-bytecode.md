@@ -271,6 +271,20 @@ EVM 在 `LT` 指令执行时判断：`4 < 4`。结果为 `false`，即 `0`。所
 
 ![运行时代码执行的三个已观察阶段](../assets/chapter-11/three-runtime-stages.png)
 
+## 章节自测
+
+先自己回答，再对照参考答案。
+
+### 题目
+
+1. 为什么 `eth.getCode(contractAddress)` 读到的是 Runtime Bytecode，而不是 Creation Bytecode？
+2. 为什么字节码长度用 `(runtimeCode.length - 2) / 2` 计算？字节数等于指令数吗？
+3. `60 80 60 40 52` 是什么意思？`MSTORE` 把什么写到哪里？
+4. 为什么在 `0x40` 位置存入 `0x80`？这是 EVM 强制规定的吗？
+5. 前三条指令的 `pc` 为什么是 `0`、`2`、`4`，而不是 `0`、`1`、`2`？
+6. `CALLVALUE → DUP1 → ISZERO → … → JUMPI` 在检查什么？
+7. `CALLDATASIZE` 检查中，4 字节和 3 字节输入分别会怎样？
+
 ---
 
 上一章：[第 10 章 EVM 如何找到并执行正确的合约函数](10-function-dispatch-and-evm-tracing.md)
