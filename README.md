@@ -19,6 +19,7 @@
 9. [ABI、函数选择器与交易数据编码](chapters/09-abi-function-selectors-and-calldata.md)
 10. [EVM 如何找到并执行正确的合约函数](chapters/10-function-dispatch-and-evm-tracing.md)
 11. [从 Solidity 源代码到 EVM 字节码](chapters/11-solidity-source-to-evm-bytecode.md)
+12. [EVM Interpreter：Geth 如何执行智能合约？](chapters/12-evm-interpreter-and-run-loop.md)
 
 ## 阅读说明
 

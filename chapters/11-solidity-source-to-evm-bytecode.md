@@ -352,3 +352,5 @@ EVM 在 `LT` 指令执行时判断：`4 < 4`。结果为 `false`，即 `0`。所
 ---
 
 上一章：[第 10 章 EVM 如何找到并执行正确的合约函数](10-function-dispatch-and-evm-tracing.md)
+
+下一章：[第 12 章 EVM Interpreter——Geth 如何执行智能合约？](12-evm-interpreter-and-run-loop.md)

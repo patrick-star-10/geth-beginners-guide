@@ -262,3 +262,163 @@ sed -n '150,270p' core/vm/interpreter.go
 ```
 
 这段源码较长，先不要急着记住每一行。沿着它找到读取 Opcode、检查 Stack、计算 Gas、执行指令、更新 PC 的顺序；下一阶段再逐项消化。`96`、`150`、`270` 都是作者版本的行号，如果本地版本不同，请先用前面的 `grep` 定位 `Run()`。
+
+## 12.2 阶段 B：消化 Interpreter 主循环
+
+### 先理解整个 `Run()` 函数
+
+上一阶段已经找到完整的 EVM Interpreter 主循环。源码虽然有一百多行，但可以按下面六个阶段反复阅读：初始化执行环境、读取 Opcode、检查 Stack、计算并扣除 Gas、执行指令、更新 PC。
+
+![Run 主循环从初始化到更新 PC 的六个阶段](../assets/chapter-12/run-loop-six-stages.png)
+
+以下以作者的 `v1.17.8-unstable-b10c4ecc` 源码为例。你本地的 Geth 版本若不同，行号和实现可能变化，请优先沿着实际代码中的变量与调用关系阅读。
+
+### 第一阶段：初始化执行环境（作者版本约第 96～150 行）
+
+**1. `evm.depth++`：记录调用深度。**
+
+```go
+evm.depth++
+defer func() { evm.depth-- }()
+```
+
+这里的 `depth` 是 EVM 消息调用深度。例如合约 A 调用合约 B，B 又调用 C，就会进入多层调用。每进入一次 `Run()`，深度增加；退出时通过 `defer` 减少。注意，它**不是** EVM Stack 的元素数量。调用深度有上限，但这两行只是维护计数，并没有直接执行上限检查。
+
+**2. `readOnly`：保持只读执行状态。**
+
+```go
+if readOnly && !evm.readOnly {
+    evm.readOnly = true
+    defer func() { evm.readOnly = false }()
+}
+```
+
+这里的设计是：如果父调用已经进入只读状态，子调用不能随意取消限制。此前在源码中看到的 `if evm.readOnly { return nil, ErrWriteProtection }`，就是 `opSstore` 对只读限制的检查。因此，`STATICCALL` 中尝试执行 `SSTORE` 会被禁止。这里先理解只读限制的作用，**本章还不分析 `opSstore()` 的具体实现**。
+
+**3. 创建 Stack 和 Memory。**
+
+```go
+mem = NewMemory()
+stack = evm.arena.stack()
+
+callContext = &ScopeContext{
+    Memory:   mem,
+    Stack:    stack,
+    Contract: contract,
+}
+```
+
+`NewMemory()` 创建当前调用帧的 EVM Memory；`evm.arena.stack()` 取得当前执行所用的 Stack。它们供当前调用使用，并不是合约的持久化 Storage。`callContext` 是一个 Go 结构体实例，把 Memory、Stack、Contract 组合起来，方便 Opcode 的实现函数使用。
+
+**4. 初始化 PC。**
+
+```go
+pc = uint64(0)
+```
+
+PC 是 Program Counter，表示当前准备执行的 Opcode 在合约字节码中的**字节偏移量**，不是“第几条指令”。前面 Trace 中的 `PC 0 → PUSH1`、`PC 2 → PUSH1`、`PC 4 → MSTORE`，正因为每条 `PUSH1` 还额外占用 1 字节立即数。
+
+### 第二阶段：读取 Opcode，查询 Jump Table
+
+接着进入 `for { ... }` 主循环。把它理解为：读取当前指令，完成检查和执行，再进入下一轮。循环中的一组关键代码是：
+
+```go
+op = contract.GetOp(pc)
+operation := jumpTable[op]
+```
+
+第一行从当前合约的字节码中，读取 PC 指向的 Opcode；第二行根据 Opcode 从 Jump Table 取得 `operation`。例如读到 `0x54`，它表示 `SLOAD`，于是会找到对应的执行函数。`operation` 不只有执行函数，还包含 Gas 成本和 Stack 约束等信息。这就是字节码中的 Opcode 与 Go 实现之间的连接。
+
+### 第三阶段：检查 Stack 是否满足指令要求
+
+作者版本的主循环会在调用执行函数前检查 Stack 长度：
+
+```go
+if sLen := stack.len(); sLen < operation.minStack {
+    return nil, &ErrStackUnderflow{
+        stackLen: sLen,
+        required: operation.minStack,
+    }
+} else if sLen > operation.maxStack {
+    return nil, &ErrStackOverflow{
+        stackLen: sLen,
+        limit: operation.maxStack,
+    }
+}
+```
+
+例如 `ADD` 需要两个操作数，Stack 里若只有一个数字 `[5]`，执行它就会出现 Stack Underflow（栈下溢）。反过来，如果执行指令会使 Stack 超过容量，就可能出现 Stack Overflow（栈溢出）。所以解释器不是读到 Opcode 就立即执行；它先确认执行环境符合该指令的要求。
+
+### 第四阶段：计算并扣除 Gas
+
+作者版本先处理指令的固定 Gas 成本：
+
+```go
+execCost, stateCost = operation.constantGas, 0
+if !contract.Gas.ChargeExecutionOnly(execCost) {
+    return nil, ErrOutOfGas
+}
+```
+
+某些 Opcode 还会有动态成本，源码中用 `operation.dynamicGas != nil` 判断。可以先联系已经见过的指令理解：`ADD` 的基础费用相对简单；`MSTORE` 可能涉及 Memory 扩展费用；`SLOAD` 涉及存储槽访问费用；`SSTORE` 的费用还会受存储槽状态影响。
+
+本地源码里还有 `GasCosts`、`ExecutionGas`、`StateGas` 等名字，说明这个版本会区分执行与状态维度来记录和扣除 Gas。**这不等于交易的 Gas Limit 已经变成两个独立的用户输入值。**具体 Gas 模型还要结合该版本的 `GasBudget`、链规则和交易处理代码继续研究；目前先抓住“指令执行前需要计算并扣除 Gas”这条主线。
+
+### 第五阶段：真正执行 Opcode
+
+来到阶段 A 找到的作者版本第 259 行：
+
+```go
+res, err = operation.execute(&pc, evm, callContext)
+```
+
+这是整个执行循环中最关键的一行：
+
+| 参数或结果 | 作用 |
+| --- | --- |
+| `&pc` | PC 的指针，允许指令修改执行位置 |
+| `evm` | 当前 EVM 实例 |
+| `callContext` | 当前调用的 Stack、Memory、Contract |
+| `res` | 指令执行产生的返回数据 |
+| `err` | 执行错误或停止信号 |
+
+为什么传入 `&pc`，而不是只传入 `pc` 的值？因为 `JUMP`、`JUMPI` 等指令需要改变程序接下来执行的位置；`PUSH1` 等指令还需要处理操作码后面的立即数。
+
+### 第六阶段：处理结果并更新 PC
+
+执行后，主循环检查结果并更新 PC：
+
+```go
+if err != nil {
+    break
+}
+pc++
+```
+
+遇到错误或停止信号，会退出循环。如果继续执行，才更新 PC。这里容易疑惑：代码只写了 `pc++`，为什么 `PUSH1` 后 PC 会从 0 变成 2？因为前面传入了 `&pc`，`PUSH1` 的执行函数会处理紧随操作码的立即数并相应调整 PC，然后主循环再执行 `pc++`。两部分配合，才能指向下一条指令。`JUMP` 这样的指令，也必须按主循环的 PC 更新规则设置跳转位置。
+
+### 用教学伪代码把六个阶段连起来
+
+下面不是 Geth 的原始源码，只是帮助记住主线：
+
+```go
+for {
+    op := contract.GetOp(pc)
+    operation := jumpTable[op]
+
+    checkStack(operation)
+    chargeGas(operation)
+
+    result, err := operation.execute(&pc, evm, scope)
+    if err != nil {
+        break
+    }
+    pc++
+}
+```
+
+读完这一阶段，应该能沿着源码回答六个问题：EVM 怎样读取当前 Opcode；怎样通过 Jump Table 找到对应的 Go 实现；为什么执行前要检查 Stack；Gas 何时计算和扣除；为什么执行函数接收 PC 的指针；以及 EVM 怎样继续执行下一条指令。接下来可反复对照本地 `Run()` 和之前的 Trace 消化这些关系，阶段 C 的 `opSstore()` 暂不开始。
+
+---
+
+上一章：[第 11 章 从 Solidity 源代码到 EVM 字节码](11-solidity-source-to-evm-bytecode.md)
