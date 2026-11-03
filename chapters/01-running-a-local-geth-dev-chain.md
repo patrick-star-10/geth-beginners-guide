@@ -160,6 +160,21 @@ web3.fromWei(
 
 ![查看本地开发账户余额](../assets/chapter-01/development-account-balance.png)
 
+## 章节自测
+
+先不看答案，试着用自己的话解释每一题；再对照参考答案，检查自己是否分清了主网与开发链、节点与控制台、区块与账户。
+
+### 题目
+
+1. 为什么主网节点通常需要共识客户端，而本地 `--dev` 模式只启动 Geth 就能做实验？
+2. 启动 `--dev.period 0` 后，一分钟没有交易，区块高度会每 12 秒增加吗？
+3. 为什么要开两个终端？它们分别做什么？
+4. `geth attach ...geth.ipc` 使用 HTTP 还是 IPC？不加 `--http` 还能用吗？
+5. 为什么要单独创建 `~/ethereum/dev-chain` 数据目录？
+6. `eth.blockNumber` 返回 `0`，表示没有区块吗？`eth.getBlock(0)` 返回什么？
+7. `eth.accounts[0]` 指什么？为什么用 `web3.fromWei(..., "ether")`？
+8. 开发链账户显示有大量 ETH，能转到主网使用吗？
+
 ---
 
 上一章：[准备篇 实验环境与 Geth 安装](00-environment-and-installation.md)
