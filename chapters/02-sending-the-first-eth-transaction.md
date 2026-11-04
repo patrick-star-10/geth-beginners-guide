@@ -197,6 +197,21 @@ eth.getTransactionCount(sender)
 
 如果这是开发账户的第一笔交易，结果通常是 `1`。
 
+## 章节自测
+
+先不看答案，试着用自己的话解释每一题；再对照参考答案，检查自己是否分清了账户、交易、回执、Gas 与 Nonce。
+
+### 题目
+
+1. 为什么收款账户 B 不解锁也能收到 ETH？
+2. 创建账户 B 后，区块高度为什么不会因此增加？
+3. 为什么发送 1 ETH 要写 `value: web3.toWei(1, "ether")`？
+4. 拿到 `txHash`，能证明转账成功了吗？
+5. 为什么第一笔交易的 `nonce` 是 `0`，交易后 `eth.getTransactionCount(sender)` 却是 `1`？
+6. `gas` 和 `gasUsed` 有什么区别？
+7. `eth.getBlock("latest", true)` 中的 `true` 是什么意思？
+8. 为什么要保存自己交易的 `txHash`，不能照抄教程截图里的？
+
 ---
 
 上一章：[第 1 章 运行本地 Geth 开发节点](01-running-a-local-geth-dev-chain.md) · 下一章：[第 3 章 理解交易生命周期与 Nonce](03-understanding-transaction-lifecycle-and-nonce.md)
