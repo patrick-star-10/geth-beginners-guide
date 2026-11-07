@@ -74,6 +74,19 @@ eth.getTransactionCount(sender)
 
 这意味着账户下一笔正常交易应当使用 Nonce `1`。
 
+## 章节自测
+
+### 题目
+
+1. 交易进入 TxPool，是否说明它已经执行、收款账户余额已经变化？
+2. 账户当前 Nonce 为 `3`，先提交 Nonce 为 `5` 的交易，它能直接执行吗？
+3. Nonce 为 `0` 的交易已经执行，为什么原样再提交一次不能再转一次钱？
+4. Nonce 和 Chain ID 分别防止什么样的重复使用？
+5. 为什么交易的 Nonce 是 `0`，账户当前的 Nonce 却是 `1`？
+6. 交易进入 TxPool 后被丢弃，账户在链上的 Nonce 会增加吗？
+7. 交易进入区块，但执行时 `revert`，Nonce 会增加吗？
+8. 为什么本地 `--dev` 链的流程不能直接等同于真实 PoS 主网？
+
 ---
 
 上一章：[第 2 章 发送第一笔 ETH 交易](02-sending-the-first-eth-transaction.md) · 下一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md)
