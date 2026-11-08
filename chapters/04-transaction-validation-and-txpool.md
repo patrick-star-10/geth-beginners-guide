@@ -102,6 +102,18 @@ eth.getTransactionCount(sender)
 
 交易提交给 Geth 后，节点会检查签名、Nonce、资金、费用和其他规则。不合法的交易会被拒绝；通过校验的交易才会根据当前条件进入交易池等待后续处理。
 
+## 章节自测
+
+### 题目
+
+1. `txpool.status` 显示 `pending` 和 `queued` 都是 `0`，能证明刚才的交易没经过 TxPool 吗？
+2. `pending` 与 `queued` 有什么区别？账户当前 Nonce 是 `1`，Nonce 为 `3` 的交易为什么不能直接执行？
+3. 账户当前 Nonce 是 `1`，为什么余额充足时，Nonce 为 `0` 的交易仍会被拒绝？它会进入 TxPool 吗？
+4. 交易通过交易池校验，就一定能执行成功吗？
+5. 除了余额，Geth 接收交易时还会检查什么？
+6. `txpool.status` 和 `txpool.content` 分别有什么用？
+7. Nonce 为 `0` 的交易被拒绝后，交易池和账户 Nonce 应是什么状态？
+
 ---
 
 上一章：[第 3 章 理解交易生命周期与 Nonce](03-understanding-transaction-lifecycle-and-nonce.md) · 下一章：[第 5 章 理解 Gas 与 EIP-1559 交易费用](05-understanding-gas-and-eip-1559-fees.md)
