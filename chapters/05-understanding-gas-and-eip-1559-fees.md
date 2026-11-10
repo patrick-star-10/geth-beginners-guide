@@ -233,6 +233,30 @@ EIP-1559 会比较上一个区块的 Gas Used 和目标 Gas 使用量，并据�
 
 在这次本地开发链实验中，创世区块的 `gasUsed` 为 `0`，远低于目标使用量，因此下一个区块的 Base Fee 按最大幅度下降。这说明 Base Fee 不是用户随意设置的固定价格，而是由协议规则根据前一个区块的使用情况调整。
 
+## 章节自测
+
+### 题目
+
+1. Gas 和 Gas Price 分别是什么？实际手续费怎么算？
+2. 消耗 21,000 Gas、每单位价格为 2 Gwei，手续费是多少 ETH？
+3. 设置 `gas: 50000`，实际只用了 21,000 Gas，按哪个数字收费？
+4. Base Fee 和 Priority Fee 是什么？分别去哪里？
+5. `maxFeePerGas` 和 `maxPriorityFeePerGas` 有什么区别？设置上限就一定付到上限吗？
+6. 本章给出的三个费用参数，算出的实际每单位 Gas 价格是多少？
+
+   **题目数据：**
+
+   ```ini
+   baseFeePerGas        = 875000000 Wei
+   maxPriorityFeePerGas =         1 Wei
+   maxFeePerGas         = 2000000001 Wei
+   ```
+
+7. 这笔交易使用 21,000 Gas，总手续费以及两部分费用各是多少？
+8. 为什么 Base Fee 从 1 Gwei 降到了 0.875 Gwei？
+9. 从哪里查实际手续费所需的字段？为什么不能用 `"latest"` 查交易所在区块的 Base Fee？
+10. `type: 0x2` 和 `type: 0x0` 分别表示什么？
+
 ---
 
 上一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md) · 下一章：[第 6 章 以太坊状态机与账户状态转换](06-ethereum-state-machine-and-account-transitions.md)
