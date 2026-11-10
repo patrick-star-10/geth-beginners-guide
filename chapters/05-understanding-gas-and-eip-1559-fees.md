@@ -257,6 +257,111 @@ EIP-1559 会比较上一个区块的 Gas Used 和目标 Gas 使用量，并据�
 9. 从哪里查实际手续费所需的字段？为什么不能用 `"latest"` 查交易所在区块的 Base Fee？
 10. `type: 0x2` 和 `type: 0x0` 分别表示什么？
 
+### 参考答案
+
+1. **答案：** Gas 是衡量交易消耗多少执行资源的单位，可以理解为“用了多少”。Gas Price 是每单位 Gas 的价格，可以理解为“每单位多少钱”。
+
+   计算**实际手续费**时，用的是：
+
+   ```text
+   实际手续费 = gasUsed × effectiveGasPrice
+   ```
+
+   `gasUsed` 是实际消耗的 Gas，`effectiveGasPrice` 是实际支付的每单位 Gas 价格。不能直接用交易设置的 Gas 上限来计算实际手续费。
+
+2. **答案：** 先算出总共支付多少 Gwei：
+
+   ```text
+   21,000 × 2 Gwei = 42,000 Gwei
+   ```
+
+   因为 **1 Gwei = 10⁻⁹ ETH**，所以：
+
+   ```text
+   42,000 Gwei = 0.000042 ETH
+   ```
+
+   容易混淆的是 **Wei**：1 Wei 才是 10⁻¹⁸ ETH，而 **1 Gwei = 10⁹ Wei**。
+
+3. **答案：** 按实际使用的 **21,000 Gas** 计算手续费。
+
+   `gas: 50000` 表示这笔交易**最多允许消耗 50,000 Gas**，相当于设定一个上限。执行完后，回执中的 `gasUsed` 才告诉你实际用了多少。剩下的 29,000 Gas 没有被消耗，不会作为已消耗的 Gas 收费。
+
+4. **答案：** **Base Fee** 是基础费用，由协议根据区块的 Gas 使用情况调整。交易执行后，这部分费用会被**销毁**。
+
+   **Priority Fee** 是优先费用，也常被称为“小费”。实际支付的这部分费用会给**区块提议者**。它可以增加交易被选择打包的吸引力，但不保证交易一定优先被打包。
+
+   两者说的都是**每单位 Gas 的费用**。算出每单位 Gas 实际付了多少后，还要乘以 `gasUsed`，才得到整笔交易的手续费。
+
+5. **答案：**
+
+   - `maxFeePerGas`：每单位 Gas 愿意支付的**总价上限**，包含 Base Fee 和 Priority Fee。
+   - `maxPriorityFeePerGas`：每单位 Gas 愿意支付的**优先费用上限**。
+
+   设置上限不代表一定付到上限。例如，愿意支付的总价上限是 2 Gwei，但实际的 Base Fee 加优先费用只需 1.2 Gwei，那么实际每单位 Gas 支付的是 1.2 Gwei，而不是 2 Gwei。
+
+   在本章讨论的普通 EIP-1559 动态费用交易中，可用下面的公式理解实际价格：
+
+   ```text
+   effectiveGasPrice =
+     min(maxFeePerGas, baseFeePerGas + maxPriorityFeePerGas)
+   ```
+
+6. **答案：** Base Fee 加上本次的优先费用是：
+
+   ```text
+   875000000 + 1 = 875000001 Wei/Gas
+   ```
+
+   它低于总价上限 `2000000001 Wei/Gas`，因此实际价格为 **`875000001 Wei/Gas`**。`maxFeePerGas` 只是最高愿意支付的价格，不是固定扣费价格。
+
+7. **答案：** 用实际 Gas 数量分别乘以每单位 Gas 的价格：
+
+   ```text
+   总手续费：
+   21,000 × 875000001 Wei
+   = 18,375,000,021,000 Wei
+   = 0.000018375000021 ETH
+   ```
+
+   其中：
+
+   | 费用去向 | 计算 | 金额 |
+   | --- | --- | ---: |
+   | Base Fee 销毁 | `21,000 × 875000000 Wei` | `0.000018375 ETH` |
+   | Priority Fee 给区块提议者 | `21,000 × 1 Wei` | `0.000000000000021 ETH` |
+
+   两部分相加，正好是总手续费 `0.000018375000021 ETH`。
+
+8. **答案：** EIP-1559 会比较**上一个区块实际使用的 Gas**与**目标 Gas 使用量**，据此调整下一个区块的 Base Fee。
+
+   本章实验中，创世区块的 `gasUsed` 是 `0`，低于目标，因此下一个区块的 Base Fee 下降了。从 `1` Gwei 变为 `0.875` Gwei，下降幅度是：
+
+   ```text
+   (1 - 0.875) ÷ 1 = 12.5%
+   ```
+
+   这次恰好按单个区块允许的最大幅度下调。关键点是：**下一个区块的 Base Fee 受前一个区块的使用情况影响**。
+
+9. **答案：** `gasUsed` 和 `effectiveGasPrice` 要从**交易回执**中查询：
+
+   ```javascript
+   var receipt = eth.getTransactionReceipt(txHash)
+   ```
+
+   如果要查这笔交易进入区块时的 Base Fee，先从交易对象取得它所在的区块号，再查询那个区块：
+
+   ```javascript
+   var tx = eth.getTransaction(txHash)
+   eth.getBlock(tx.blockNumber).baseFeePerGas
+   ```
+
+   `"latest"` 指**当前最新区块**。随着新块产生，它可能已经不是这笔交易所在的区块，Base Fee 也可能不同。
+
+10. **答案：** `type: 0x2` 表示 **EIP-1559 动态费用交易**，它可以使用 `maxFeePerGas` 和 `maxPriorityFeePerGas` 这两个费用上限。旧式 **Legacy 交易**的类型通常是 `type: 0x0`。
+
+    “动态费用”主要是在说 **Base Fee 会按协议规则随区块使用情况调整**，并且交易有相应的费用参数；它不是说交易实际消耗的 Gas 数量会自动变成某个固定值。
+
 ---
 
 上一章：[第 4 章 交易验证与 TxPool](04-transaction-validation-and-txpool.md) · 下一章：[第 6 章 以太坊状态机与账户状态转换](06-ethereum-state-machine-and-account-transitions.md)
